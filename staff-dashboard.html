@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Dashboard - Enverga Judging System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <div class="logo">
+                    <img src="logo.jpg" alt="University Logo">
+                </div>
+                <div class="header-content">
+                    <h1>Manuel S. Enverga University Foundation</h1>
+                    <p>Staff Dashboard - Judging System</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <!-- User info will be populated by JavaScript -->
+            </div>
+        </header>
+
+        <nav>
+            <ul>
+                <li><a href="javascript:void(0)" onclick="staffApp.showDashboard()">Dashboard</a></li>
+                <li><a href="javascript:void(0)" onclick="staffApp.showCompetitions()">Competitions</a></li>
+                <li><a href="javascript:void(0)" onclick="staffApp.showParticipants()">Participants</a></li>
+                <li><a href="javascript:void(0)" onclick="staffApp.showJudges()">Judges</a></li>
+                <li><a href="javascript:void(0)" onclick="staffApp.showLiveScoring()">Live Scoring</a></li>
+                <li><a href="javascript:void(0)" onclick="staffApp.showResults()">Results</a></li>
+            </ul>
+        </nav>
+
+        <section id="content">
+            <!-- Content will be dynamically loaded here -->
+        </section>
+    </div>
+
+    <script src="staff.js"></script>
+</body>
+</html>
