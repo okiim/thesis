@@ -267,6 +267,33 @@ section {
     font-weight: 600;
 }
 
+.btn-show {
+    background: #800020;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin: 2px;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.btn-show:hover {
+    background: #a0002a;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(128, 0, 32, 0.3);
+}
+
+.actions-cell {
+    white-space: nowrap;
+}
+
+.actions-cell button {
+    margin: 2px;
+}
+
 .btn-edit:hover {
     background: #e0a800;
     transform: translateY(-1px);
@@ -844,6 +871,209 @@ table tr:hover {
     border-radius: 8px;
     padding: 20px;
     text-align: center;
+}
+
+/* Event Type Competitions View */
+.competitions-by-event-type {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.event-type-header {
+    background: white;
+    border: 3px solid #800020;
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.event-type-header h2 {
+    color: #800020;
+    font-size: 1.8em;
+    margin-bottom: 15px;
+    font-weight: 700;
+}
+
+.event-type-details {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.event-type-details p {
+    color: #666;
+    font-size: 16px;
+    margin: 0;
+}
+
+.competitions-actions {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 30px;
+    justify-content: center;
+}
+
+.competitions-table-container {
+    background: white;
+    border: 2px solid #800020;
+    border-radius: 12px;
+    padding: 25px;
+}
+
+.competitions-table-container h3 {
+    color: #800020;
+    font-size: 1.4em;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+.competitions-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.competitions-table th {
+    background: #800020;
+    color: white;
+    padding: 15px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.competitions-table td {
+    padding: 15px 12px;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+}
+
+.competitions-table tr:hover {
+    background-color: #f8f9fa;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.btn-primary-small,
+.btn-edit-small,
+.btn-delete-small {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-primary-small {
+    background: #800020;
+    color: white;
+}
+
+.btn-primary-small:hover {
+    background: #a0002a;
+}
+
+.btn-edit-small {
+    background: #ffc107;
+    color: #000;
+}
+
+.btn-edit-small:hover {
+    background: #e0a800;
+}
+
+.btn-delete-small {
+    background: #800020;
+    color: white;
+}
+
+.btn-delete-small:hover {
+    background: #a0002a;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.status-completed {
+    background: #800020;
+    color: white;
+}
+
+.status-ready {
+    background: #800020;
+    color: white;
+}
+
+.status-progress {
+    background: #ddd;
+    color: #800020;
+    border: 1px solid #800020;
+}
+
+.status-setup {
+    background: #f8f9fa;
+    color: #800020;
+    border: 1px solid #800020;
+}
+
+.no-competitions-state {
+    background: white;
+    border: 2px solid #800020;
+    border-radius: 12px;
+    padding: 60px 30px;
+    text-align: center;
+}
+
+.no-competitions-state h3 {
+    color: #800020;
+    font-size: 1.6em;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.no-competitions-state p {
+    color: #666;
+    font-size: 16px;
+    margin-bottom: 25px;
+    line-height: 1.5;
+}
+
+/* Event Type Info Card */
+.event-type-info {
+    margin-bottom: 30px;
+}
+
+.info-card {
+    background: white;
+    border: 2px solid #800020;
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 20px;
+}
+
+.info-card h3 {
+    color: #800020;
+    font-size: 1.4em;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.info-card p {
+    margin: 8px 0;
+    color: #666;
+    font-size: 16px;
 }
 
 /* Enhanced Criteria Management - Larger Design */
