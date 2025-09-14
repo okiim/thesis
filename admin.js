@@ -3,6 +3,11 @@ class AdminDashboard {
     constructor() {
         this.baseURL = 'http://localhost:3002';
         this.user = null;
+
+        // state used by criteria editor
+        this.currentCompetitionId = null;
+        this.currentCriteria = [];
+
         this.init();
     }
 
@@ -31,14 +36,24 @@ class AdminDashboard {
             headerRight.innerHTML = `
                 <div>Welcome, ${this.user.username}</div>
                 <div style="font-size: 12px;">Role: Administrator</div>
-                <button onclick="adminApp.logout()" class="logout-btn">Logout</button>
+                <button class="logout-btn">Logout</button>
             `;
+            // bind safely (avoids inline handler + CSP issues)
+            const btn = headerRight.querySelector('.logout-btn');
+            if (btn) btn.addEventListener('click', () => this.logout());
         }
     }
 
     logout() {
-        sessionStorage.removeUser('user');
-        window.location.href = 'login.html';
+        try {
+            sessionStorage.removeItem('user');
+            localStorage.removeItem('user');
+        } catch (e) {
+            console.warn('Storage cleanup error:', e);
+        } finally {
+            // optional: sessionStorage.clear();
+            window.location.replace('login.html');
+        }
     }
 
     // Utility methods
@@ -48,6 +63,11 @@ class AdminDashboard {
                 headers: { 'Content-Type': 'application/json' },
                 ...options
             });
+            // Handle non-2xx gracefully
+            if (!response.ok) {
+                const text = await response.text().catch(() => '');
+                throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+            }
             return await response.json();
         } catch (error) {
             console.error('API Error:', error);
@@ -56,7 +76,9 @@ class AdminDashboard {
     }
 
     showLoading(containerId) {
-        document.getElementById(containerId).innerHTML = `
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        el.innerHTML = `
             <div class="loading">
                 <div style="font-size: 24px;">⳾</div>
                 <p>Loading...</p>
@@ -65,7 +87,9 @@ class AdminDashboard {
     }
 
     showError(containerId, message) {
-        document.getElementById(containerId).innerHTML = `
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        el.innerHTML = `
             <div class="alert alert-error">${message}</div>
         `;
     }
@@ -93,7 +117,9 @@ class AdminDashboard {
         `;
     }
 
+    // =========================
     // Event Types Management
+    // =========================
     async showEventTypes() {
         document.getElementById("content").innerHTML = `
             <h2>Event Types Management</h2>
@@ -111,7 +137,7 @@ class AdminDashboard {
     }
 
     renderEventTypes(eventTypes) {
-        const html = eventTypes.length ? `
+        const html = eventTypes && eventTypes.length ? `
             <table>
                 <tr>
                     <th>Event Type</th>
@@ -129,8 +155,11 @@ class AdminDashboard {
                             </span>
                         </td>
                         <td>
-                            <button onclick="adminApp.editEventType(${eventType.event_type_id})" class="btn-edit">Edit</button>
-                            <button onclick="adminApp.deleteEventType(${eventType.event_type_id})" class="btn-delete">Delete</button>
+                            <div class="actions-cell">
+                                <button onclick="adminApp.showCompetitionsByEventType(${eventType.event_type_id})" class="btn-show">Show</button>
+                                <button onclick="adminApp.editEventType(${eventType.event_type_id})" class="btn-edit">Edit</button>
+                                <button onclick="adminApp.deleteEventType(${eventType.event_type_id})" class="btn-delete">Delete</button>
+                            </div>
                         </td>
                     </tr>
                 `).join('')}
@@ -186,14 +215,279 @@ class AdminDashboard {
                 alert('Event type created successfully!');
                 this.showEventTypes();
             } else {
-                alert('Error: ' + result.error);
+                alert('Error: ' + (result.error || 'Unknown error'));
             }
         } catch (error) {
             alert('Error creating event type');
         }
     }
 
+    async editEventType(id) {
+        try {
+            const eventTypes = await this.apiRequest('/event-types');
+            const eventType = (eventTypes || []).find(et => et.event_type_id == id);
+            if (!eventType) {
+                alert('Event type not found');
+                return;
+            }
+
+            document.getElementById("content").innerHTML = `
+                <h2>Edit Event Type</h2>
+                <form id="editEventTypeForm" class="form-container">
+                    <label>Event Type Name:</label>
+                    <input type="text" id="edit_type_name" required value="${eventType.type_name}">
+                    
+                    <label>Description:</label>
+                    <textarea id="edit_description" rows="3">${eventType.description || ''}</textarea>
+                    
+                    <label>Event Category:</label>
+                    <select id="edit_is_pageant" required>
+                        <option value="0" ${!eventType.is_pageant ? 'selected' : ''}>Regular Event</option>
+                        <option value="1" ${eventType.is_pageant ? 'selected' : ''}>Beauty Pageant Event</option>
+                    </select>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Update Event Type</button>
+                        <button type="button" onclick="adminApp.showEventTypes()" class="btn-secondary">Cancel</button>
+                    </div>
+                </form>
+            `;
+
+            document.getElementById("editEventTypeForm").onsubmit = async (e) => {
+                e.preventDefault();
+                await this.updateEventType(id);
+            };
+            
+        } catch (error) {
+            alert('Error loading event type data for editing');
+            console.error('Edit event type error:', error);
+        }
+    }
+
+    async updateEventType(eventTypeId) {
+        const data = {
+            type_name: document.getElementById("edit_type_name").value,
+            description: document.getElementById("edit_description").value,
+            is_pageant: document.getElementById("edit_is_pageant").value === "1"
+        };
+
+        try {
+            const result = await this.apiRequest(`/update-event-type/${eventTypeId}`, {
+                method: 'PUT',
+                body: JSON.stringify(data)
+            });
+            
+            if (result.success) {
+                alert('Event type updated successfully!');
+                this.showEventTypes();
+            } else {
+                alert('Error: ' + (result.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error updating event type');
+            console.error('Update event type error:', error);
+        }
+    }
+
+    async deleteEventType(id) {
+        if (!confirm('Are you sure you want to delete this event type? This may affect existing competitions.')) return;
+        try {
+            const result = await this.apiRequest(`/delete-event-type/${id}`, { method: 'DELETE' });
+            if (result.success) {
+                alert('Event type deleted successfully!');
+                this.showEventTypes();
+            } else {
+                alert('Error: ' + (result.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error deleting event type');
+        }
+    }
+
+    // View competitions belonging to an Event Type
+    async showCompetitionsByEventType(eventTypeId) {
+        document.getElementById("content").innerHTML = `
+            <div class="competitions-by-event-type">
+                <div class="event-type-header">
+                    <h2>Event Type</h2>
+                    <div class="event-type-details" id="et-details">
+                        <p>Loading event type details…</p>
+                    </div>
+                </div>
+
+                <div class="competitions-actions">
+                    <button class="btn-primary" onclick="adminApp.createCompetitionFromEventType(${eventTypeId})">
+                        Create Competition from this Event Type
+                    </button>
+                    <button class="btn-secondary" onclick="adminApp.showEventTypes()">
+                        Back to Event Types
+                    </button>
+                </div>
+
+                <div class="competitions-table-container">
+                    <h3>Competitions</h3>
+                    <div id="et-competitions-list">
+                        <div class="empty-state">Loading competitions…</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        try {
+            // Event type info
+            const eventTypes = await this.apiRequest('/event-types');
+            const et = (eventTypes || []).find(e => e.event_type_id == eventTypeId);
+
+            const etDetails = document.getElementById('et-details');
+            if (!et) {
+                etDetails.innerHTML = `<div class="alert alert-error">Event type not found.</div>`;
+            } else {
+                etDetails.innerHTML = `
+                    <p><strong>Name:</strong> ${et.type_name}</p>
+                    <p><strong>Category:</strong> 
+                        <span class="badge ${et.is_pageant ? 'badge-pageant' : 'badge-regular'}">
+                            ${et.is_pageant ? 'PAGEANT' : 'REGULAR'}
+                        </span>
+                    </p>
+                    <p><strong>Description:</strong> ${et.description || 'No description'}</p>
+                `;
+            }
+
+            // Competitions under this event type
+            const competitions = await this.apiRequest('/competitions');
+            const filtered = (competitions || []).filter(c => String(c.event_type_id) === String(eventTypeId));
+
+            const target = document.getElementById('et-competitions-list');
+            if (!filtered.length) {
+                target.innerHTML = `
+                    <div class="no-competitions-state">
+                        <h3>No competitions for this event type yet</h3>
+                        <p>Create your first competition using the button above.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            target.innerHTML = `
+                <table class="competitions-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Date</th>
+                            <th>Participants</th>
+                            <th>Judges</th>
+                            <th>Status</th>
+                            <th class="actions-cell">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(c => `
+                            <tr>
+                                <td>
+                                    <strong>${c.competition_name}</strong><br/>
+                                    <small>${c.type_name || ''}</small>
+                                </td>
+                                <td>${c.competition_date || '-'}</td>
+                                <td>${c.participant_count ?? 0}</td>
+                                <td>${c.judge_count ?? 0}</td>
+                                <td>
+                                    <span class="status-badge ${c.participant_count > 0 && c.judge_count > 0 ? 'status-ready' : 'status-setup'}">
+                                        ${c.participant_count > 0 && c.judge_count > 0 ? 'Ready' : 'Setup'}
+                                    </span>
+                                </td>
+                                <td class="actions-cell">
+                                    <button class="btn-primary-small" onclick="adminApp.manageCriteria(${c.competition_id})">Manage Criteria</button>
+                                    <button class="btn-edit-small" onclick="adminApp.editCompetition(${c.competition_id})">Edit</button>
+                                    <button class="btn-delete-small" onclick="adminApp.deleteCompetition(${c.competition_id})">Delete</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } catch (err) {
+            console.error(err);
+            document.getElementById('et-competitions-list').innerHTML = `
+                <div class="alert alert-error">Error loading competitions for this event type.</div>
+            `;
+        }
+    }
+
+    // Create Competition from Event Type
+    async createCompetitionFromEventType(eventTypeId) {
+        try {
+            const eventTypes = await this.apiRequest('/event-types');
+            const eventType = (eventTypes || []).find(et => et.event_type_id == eventTypeId);
+            if (!eventType) {
+                alert('Event type not found');
+                return;
+            }
+
+            document.getElementById("content").innerHTML = `
+                <h2>Create Competition - ${eventType.type_name}</h2>
+                <div class="event-type-info">
+                    <div class="info-card">
+                        <h3>Event Type: ${eventType.type_name}</h3>
+                        <p><strong>Category:</strong> ${eventType.is_pageant ? 'Beauty Pageant' : 'Regular Event'}</p>
+                        <p><strong>Description:</strong> ${eventType.description || 'No description available'}</p>
+                    </div>
+                </div>
+                <form id="competitionFromEventForm" class="form-container">
+                    <label>Competition Name:</label>
+                    <input type="text" id="competition_name" required placeholder="Enter competition name">
+                    
+                    <label>Competition Date:</label>
+                    <input type="date" id="competition_date" required>
+                    
+                    <label>Event Description:</label>
+                    <textarea id="event_description" rows="3" placeholder="Describe this specific competition..."></textarea>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Create Competition</button>
+                        <button type="button" onclick="adminApp.showEventTypes()" class="btn-secondary">Cancel</button>
+                    </div>
+                </form>
+            `;
+
+            document.getElementById("competitionFromEventForm").onsubmit = async (e) => {
+                e.preventDefault();
+                await this.createCompetitionFromForm(eventTypeId);
+            };
+            
+        } catch (error) {
+            alert('Error loading event type details');
+            console.error('Create competition from event type error:', error);
+        }
+    }
+
+    async createCompetitionFromForm(eventTypeId) {
+        const data = {
+            competition_name: document.getElementById("competition_name").value,
+            event_type_id: eventTypeId,
+            competition_date: document.getElementById("competition_date").value,
+            event_description: document.getElementById("event_description").value
+        };
+
+        try {
+            const result = await this.apiRequest('/create-competition', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+            
+            if (result.success) {
+                alert('Competition created successfully!');
+                this.showCompetitions();
+            } else {
+                alert('Error: ' + (result.error || 'Unknown error'));
+            }
+        } catch (error) {
+            alert('Error creating competition');
+        }
+    }
+
+    // =========================
     // Competition Management
+    // =========================
     async showCompetitions() {
         document.getElementById("content").innerHTML = `
             <h2>Manage Competitions</h2>
@@ -211,7 +505,7 @@ class AdminDashboard {
     }
 
     renderCompetitions(competitions) {
-        const html = competitions.length ? `
+        const html = competitions && competitions.length ? `
             <div class="competitions-grid">
                 ${competitions.map(competition => `
                     <div class="dashboard-card">
@@ -275,7 +569,7 @@ class AdminDashboard {
         try {
             const eventTypes = await this.apiRequest('/event-types');
             const select = document.getElementById("event_type_id");
-            eventTypes.forEach(eventType => {
+            (eventTypes || []).forEach(eventType => {
                 const option = document.createElement("option");
                 option.value = eventType.event_type_id;
                 option.textContent = `${eventType.type_name} ${eventType.is_pageant ? '(Pageant)' : '(Regular)'}`;
@@ -304,14 +598,16 @@ class AdminDashboard {
                 alert('Competition created successfully!');
                 this.showCompetitions();
             } else {
-                alert('Error: ' + result.error);
+                alert('Error: ' + (result.error || 'Unknown error'));
             }
         } catch (error) {
             alert('Error creating competition');
         }
     }
 
+    // =========================
     // Scoring Results
+    // =========================
     async showScoringResults() {
         document.getElementById("content").innerHTML = `
             <h2>Scoring Results & Analytics</h2>
@@ -329,7 +625,7 @@ class AdminDashboard {
         try {
             const competitions = await this.apiRequest('/competitions');
             const select = document.getElementById("resultsCompetition");
-            competitions.forEach(competition => {
+            (competitions || []).forEach(competition => {
                 const option = document.createElement("option");
                 option.value = competition.competition_id;
                 option.textContent = competition.competition_name;
@@ -347,14 +643,14 @@ class AdminDashboard {
         this.showLoading('resultsContent');
         try {
             const scores = await this.apiRequest(`/overall-scores/${competitionId}`);
-            this.renderScoringResults(scores);
+            this.renderScoringResults(scores || []);
         } catch (error) {
             this.showError('resultsContent', 'Error loading scoring results');
         }
     }
 
     renderScoringResults(scores) {
-        if (scores.length === 0) {
+        if (!scores.length) {
             document.getElementById("resultsContent").innerHTML = `
                 <div class="empty-state">No scores submitted yet for this competition</div>
             `;
@@ -374,7 +670,6 @@ class AdminDashboard {
             participantScores[score.participant_id].scores.push(score.total_score);
         });
 
-        // Calculate averages and sort
         const sortedParticipants = Object.values(participantScores)
             .map(participant => {
                 participant.average = participant.scores.reduce((a, b) => a + b, 0) / participant.scores.length;
@@ -393,7 +688,7 @@ class AdminDashboard {
                         <th>Judges Scored</th>
                     </tr>
                     ${sortedParticipants.map((participant, index) => `
-                        <tr>
+                        <tr class="rank-row-${index + 1}">
                             <td class="rank-${index + 1}">${this.getRankText(index)}</td>
                             <td>${participant.participant_name}</td>
                             <td>${participant.average.toFixed(2)}</td>
@@ -412,7 +707,9 @@ class AdminDashboard {
         return ranks[index] || `${index + 1}th`;
     }
 
+    // =========================
     // Judging Criteria Management
+    // =========================
     async showCriteria() {
         document.getElementById("content").innerHTML = `
             <div class="criteria-management-container">
@@ -455,7 +752,7 @@ class AdminDashboard {
         try {
             const competitions = await this.apiRequest('/competitions');
             const select = document.getElementById("criteriaCompetition");
-            competitions.forEach(competition => {
+            (competitions || []).forEach(competition => {
                 const option = document.createElement("option");
                 option.value = competition.competition_id;
                 option.textContent = `${competition.competition_name} (${competition.type_name})`;
@@ -494,7 +791,7 @@ class AdminDashboard {
     async loadCriteriaForCompetition(competitionId) {
         try {
             const criteria = await this.apiRequest(`/competition-criteria/${competitionId}`);
-            this.currentCriteria = criteria.length > 0 ? criteria : [this.createDefaultCriterion(1)];
+            this.currentCriteria = (criteria && criteria.length) ? criteria : [this.createDefaultCriterion(1)];
             this.renderCriteriaList();
         } catch (error) {
             console.error('Error loading criteria:', error);
@@ -514,6 +811,8 @@ class AdminDashboard {
     }
 
     renderCriteriaList() {
+        const totalPct = this.currentCriteria.reduce((sum, c) => sum + parseFloat(c.percentage || 0), 0);
+
         const html = `
             <div id="criteriaContainer">
                 <div class="criteria-summary">
@@ -593,15 +892,13 @@ class AdminDashboard {
                 <div class="total-percentage-card">
                     <div class="percentage-display">
                         <span class="percentage-label">Total Weight:</span>
-                        <span class="percentage-value" id="totalPercentage">
-                            ${this.currentCriteria.reduce((sum, c) => sum + parseFloat(c.percentage || 0), 0)}%
-                        </span>
+                        <span class="percentage-value" id="totalPercentage">${totalPct}%</span>
                     </div>
                     <div class="percentage-bar">
-                        <div class="percentage-fill" style="width: ${Math.min(this.currentCriteria.reduce((sum, c) => sum + parseFloat(c.percentage || 0), 0), 100)}%"></div>
+                        <div class="percentage-fill" id="percentageFill" style="width: ${Math.min(totalPct, 100)}%"></div>
                     </div>
-                    <div class="percentage-status">
-                        ${this.currentCriteria.reduce((sum, c) => sum + parseFloat(c.percentage || 0), 0) === 100 
+                    <div class="percentage-status" id="percentageStatus">
+                        ${totalPct === 100 
                             ? '<span class="status-success">Ready to save - Total is 100%</span>' 
                             : '<span class="status-warning">Must total 100% to save criteria</span>'}
                     </div>
@@ -613,7 +910,13 @@ class AdminDashboard {
     }
 
     updateCriterion(index, field, value) {
-        this.currentCriteria[index][field] = value;
+        // coerce number fields
+        if (field === 'percentage' || field === 'max_score') {
+            const num = Number(value);
+            this.currentCriteria[index][field] = isNaN(num) ? 0 : num;
+        } else {
+            this.currentCriteria[index][field] = value;
+        }
         if (field === 'percentage') {
             this.updateTotalPercentage();
         }
@@ -621,14 +924,20 @@ class AdminDashboard {
 
     updateTotalPercentage() {
         const total = this.currentCriteria.reduce((sum, c) => sum + parseFloat(c.percentage || 0), 0);
-        const totalElement = document.querySelector('.total-percentage');
-        if (totalElement) {
-            totalElement.innerHTML = `Total Weight: ${total}%`;
-            totalElement.style.color = total === 100 ? '#28a745' : '#dc3545';
+        const totalEl = document.getElementById('totalPercentage');
+        const fillEl = document.getElementById('percentageFill');
+        const statusEl = document.getElementById('percentageStatus');
+
+        if (totalEl) totalEl.textContent = `${total}%`;
+        if (fillEl) fillEl.style.width = `${Math.min(total, 100)}%`;
+        if (statusEl) {
+            statusEl.innerHTML = (total === 100)
+                ? '<span class="status-success">Ready to save - Total is 100%</span>'
+                : '<span class="status-warning">Must total 100% to save criteria</span>';
         }
     }
 
-    addCriterion(competitionId) {
+    addCriterion() {
         this.currentCriteria.push(this.createDefaultCriterion(this.currentCriteria.length + 1));
         this.renderCriteriaList();
     }
@@ -660,56 +969,34 @@ class AdminDashboard {
                 alert('Criteria saved successfully!');
                 this.showCriteria();
             } else {
-                alert('Error: ' + result.error);
+                alert('Error: ' + (result.error || 'Unknown error'));
             }
         } catch (error) {
             alert('Error saving criteria');
         }
     }
 
-    // Delete Methods
-    async deleteEventType(id) {
-        if (confirm('Are you sure you want to delete this event type? This may affect existing competitions.')) {
-            try {
-                const result = await this.apiRequest(`/delete-event-type/${id}`, { method: 'DELETE' });
-                if (result.success) {
-                    alert('Event type deleted successfully!');
-                    this.showEventTypes();
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (error) {
-                alert('Error deleting event type');
-            }
-        }
-    }
-
+    // =========================
+    // Delete / Edit Competition
+    // =========================
     async deleteCompetition(id) {
-        if (confirm('Are you sure you want to delete this competition? This will also delete all participants, judges, and scores associated with it.')) {
-            try {
-                const result = await this.apiRequest(`/delete-competition/${id}`, { method: 'DELETE' });
-                if (result.success) {
-                    alert('Competition deleted successfully!');
-                    this.showCompetitions();
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (error) {
-                alert('Error deleting competition');
+        if (!confirm('Are you sure you want to delete this competition? This will also delete all participants, judges, and scores associated with it.')) return;
+        try {
+            const result = await this.apiRequest(`/delete-competition/${id}`, { method: 'DELETE' });
+            if (result.success) {
+                alert('Competition deleted successfully!');
+                this.showCompetitions();
+            } else {
+                alert('Error: ' + (result.error || 'Unknown error'));
             }
+        } catch (error) {
+            alert('Error deleting competition');
         }
     }
 
-    // Edit Methods
-    async editEventType(id) { 
-        alert('Edit Event Type feature - would show form with existing data loaded');
-    }
-    
     async editCompetition(id) {
         try {
-            // First, get the competition data
             const competition = await this.apiRequest(`/competition/${id}`);
-            
             document.getElementById("content").innerHTML = `
                 <h2>Edit Competition</h2>
                 <form id="editCompetitionForm" class="form-container">
@@ -734,14 +1021,11 @@ class AdminDashboard {
                 </form>
             `;
 
-            // Load event types and set the current selection
             await this.loadEventTypesForEdit(competition.event_type_id);
-            
             document.getElementById("editCompetitionForm").onsubmit = async (e) => {
                 e.preventDefault();
                 await this.updateCompetition(id);
             };
-            
         } catch (error) {
             alert('Error loading competition data for editing');
             console.error('Edit competition error:', error);
@@ -752,17 +1036,14 @@ class AdminDashboard {
         try {
             const eventTypes = await this.apiRequest('/event-types');
             const select = document.getElementById("edit_event_type_id");
-            
-            eventTypes.forEach(eventType => {
+            (eventTypes || []).forEach(eventType => {
                 const option = document.createElement("option");
                 option.value = eventType.event_type_id;
                 option.textContent = `${eventType.type_name} ${eventType.is_pageant ? '(Pageant)' : '(Regular)'}`;
                 
-                // Set selected if this is the current event type
                 if (eventType.event_type_id == currentEventTypeId) {
                     option.selected = true;
                 }
-                
                 select.appendChild(option);
             });
         } catch (error) {
@@ -788,7 +1069,7 @@ class AdminDashboard {
                 alert('Competition updated successfully!');
                 this.showCompetitions();
             } else {
-                alert('Error: ' + result.error);
+                alert('Error: ' + (result.error || 'Unknown error'));
             }
         } catch (error) {
             alert('Error updating competition');
@@ -806,3 +1087,12 @@ window.showEventTypes = () => adminApp.showEventTypes();
 window.showCompetitions = () => adminApp.showCompetitions();
 window.showScoringResults = () => adminApp.showScoringResults();
 window.showCriteria = () => adminApp.showCriteria();
+
+// Make sure all admin functions are globally accessible
+window.adminApp = adminApp;
+
+// Explicitly expose functions used by inline onclicks
+window.showCompetitionsByEventType = (eventTypeId) => adminApp.showCompetitionsByEventType(eventTypeId);
+window.createCompetitionFromEventType = (eventTypeId) => adminApp.createCompetitionFromEventType(eventTypeId);
+window.editEventType = (eventTypeId) => adminApp.editEventType(eventTypeId);
+window.deleteEventType = (eventTypeId) => adminApp.deleteEventType(eventTypeId);
