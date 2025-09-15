@@ -31,7 +31,7 @@ class AdminDashboard {
         if (headerRight) {
             headerRight.innerHTML = `
                 <div>Welcome, ${this.user.username}</div>
-                <div style="font-size: 12px;">Role: Administrator</div>
+                <div style="font-size: 12px;">Administrator</div>
                 <button class="logout-btn">Logout</button>
             `;
             const btn = headerRight.querySelector('.logout-btn');
