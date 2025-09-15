@@ -1,47 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Enverga Judging System</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Enverga Judging System</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <div class="header-left">
-                <div class="logo">
-                    <img src="schoollogo.png" alt="Manuel S Enverga University Foundation official logo featuring the university emblem with text Manuel S Enverga University Foundation, set against a formal academic background, conveying a sense of tradition and excellence">
-                </div>
-                <div class="header-content">
-                    <h1>Manuel S. Enverga University Foundation</h1>
-                    <p>Administrator Dashboard - Judging System</p>
-                </div>
-            </div>
-            <div class="header-right">
-                <!-- User info will be populated by JavaScript -->
-            </div>
-        </header>
+  <div class="container">
+    <header>
+      <div class="header-left">
+        <div class="logo">
+          <img src="assets/image/schoollogo.png" alt="Manuel S Enverga University Foundation official emblem">
+        </div>
+        <div class="header-content">
+          <h1 class="title">
+  Manuel S. Enverga University Foundation
+  <span class="subtitle">Administrator Dashboard - Judging System</span>
+</h1>
 
-        <nav>
-            <ul>
-                <li><a href="javascript:void(0)" onclick="adminApp.showDashboard()">Dashboard</a></li>
-                <li><a href="javascript:void(0)" onclick="adminApp.showEventTypes()">Event Types</a></li>
-                <li><a href="javascript:void(0)" onclick="adminApp.showCriteria()">Criteria</a></li>
-                <li><a href="javascript:void(0)" onclick="adminApp.showCompetitions()">Competitions</a></li>
-                <li><a href="javascript:void(0)" onclick="adminApp.showScoringResults()">Results</a></li>
-            </ul>
-        </nav>
+        </div>
+      </div>
+      <div class="header-right">
+        <!-- User info will be populated by JavaScript -->
+      </div>
+    </header>
 
-        <section id="content">
-            <!-- Content will be dynamically loaded here -->
-            <div class="loading">
-                <div style="font-size: 24px;">⳾</div>
-                <p>Loading dashboard...</p>
-            </div>
-        </section>
-    </div>
+    <nav>
+      <ul>
+        <li><a href="javascript:void(0)" onclick="adminApp.showDashboard()">Dashboard</a></li>
+        <li><a href="javascript:void(0)" onclick="adminApp.showEventTypes()">Event Types</a></li>
+        <li><a href="javascript:void(0)" onclick="adminApp.showCriteria()">Criteria</a></li>
+        <li><a href="javascript:void(0)" onclick="adminApp.showCompetitions()">Competitions</a></li>
+        <li><a href="javascript:void(0)" onclick="adminApp.showScoringResults()">Results</a></li>
+      </ul>
+    </nav>
 
-    <script src="admin.js"></script>
+    <section id="content">
+      <!-- Content will be dynamically loaded here -->
+      <div class="loading">
+        <div style="font-size: 24px;">⳾</div>
+        <p>Loading dashboard...</p>
+      </div>
+    </section>
+  </div>
+
+  <script src="admin.js"></script>
 </body>
 </html>
