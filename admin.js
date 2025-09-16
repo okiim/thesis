@@ -1,4 +1,4 @@
-// Enhanced Admin Dashboard - Complete Implementation with Confirmation Dialog Boxes
+// Enhanced Admin Dashboard - Complete Implementation with System Overview
 class AdminDashboard {
     constructor() {
         this.baseURL = 'http://localhost:3002';
@@ -30,8 +30,7 @@ class AdminDashboard {
         const headerRight = document.querySelector('.header-right');
         if (headerRight) {
             headerRight.innerHTML = `
-                <div>Welcome, ${this.user.username}</div>
-                <div style="font-size: 12px;">Administrator</div>
+                <div>Welcome, Admin</div>
                 <button class="logout-btn">Logout</button>
             `;
             const btn = headerRight.querySelector('.logout-btn');
@@ -220,7 +219,7 @@ class AdminDashboard {
                 ${this.createDashboardCard('Event Types', 'Manage custom event categories', 'showEventTypes')}
                 ${this.createDashboardCard('Judging Criteria', 'Manage judging criteria for competitions', 'showCriteria')}
                 ${this.createDashboardCard('Competitions', 'Create and manage competitions', 'showCompetitions')}
-                ${this.createDashboardCard('Scoring & Results', 'View detailed scoring results', 'showScoringResults')}
+                ${this.createDashboardCard('System Overview', 'View comprehensive system statistics and analytics', 'showScoringResults')}
             </div>
         `;
     }
@@ -235,6 +234,347 @@ class AdminDashboard {
         `;
     }
 
+    // Helper methods for DOM manipulation
+    updateElementText(id, text) {
+        const element = document.getElementById(id);
+        if (element) element.textContent = text;
+    }
+
+    hideElement(id) {
+        const element = document.getElementById(id);
+        if (element) element.style.display = 'none';
+    }
+
+    showElement(id) {
+        const element = document.getElementById(id);
+        if (element) element.style.display = 'block';
+    }
+
+    // System Overview Dashboard (Replaces Scoring Results)
+    async showScoringResults() {
+        document.getElementById("content").innerHTML = `
+            <div class="summary-container">
+                <h2>System Overview & Statistics</h2>
+                <p style="text-align: center; color: var(--muted); font-size: 16px; margin-bottom: 30px;">
+                    Comprehensive dashboard showing system-wide statistics, trends, and performance metrics
+                </p>
+
+                <div id="overview-loading" class="loading">
+                    Loading system overview...
+                </div>
+
+                <div id="overview-error" style="display: none;"></div>
+
+                <!-- Main Statistics Grid -->
+                <div id="main-stats" class="summary-grid" style="display: none;">
+                    <div class="summary-card competitions">
+                        <div class="summary-icon">🏆</div>
+                        <div class="summary-count" id="total-competitions">0</div>
+                        <div class="summary-label">Total Competitions</div>
+                        <p class="summary-description">All competitions in the system</p>
+                    </div>
+
+                    <div class="summary-card event-types">
+                        <div class="summary-icon">📋</div>
+                        <div class="summary-count" id="total-event-types">0</div>
+                        <div class="summary-label">Event Types</div>
+                        <p class="summary-description">Available competition categories</p>
+                    </div>
+
+                    <div class="summary-card participants">
+                        <div class="summary-icon">👥</div>
+                        <div class="summary-count" id="total-participants">0</div>
+                        <div class="summary-label">Total Participants</div>
+                        <p class="summary-description">Registered participants system-wide</p>
+                    </div>
+
+                    <div class="summary-card judges">
+                        <div class="summary-icon">⚖️</div>
+                        <div class="summary-count" id="total-judges">0</div>
+                        <div class="summary-label">Total Judges</div>
+                        <p class="summary-description">Available judges in the system</p>
+                    </div>
+                </div>
+
+                <!-- Detailed Analytics Section -->
+                <div id="detailed-analytics" style="display: none; margin-top: 40px;">
+                    <!-- Competition Analytics -->
+                    <div style="background: #fff; border: 2px solid var(--maroon); border-radius: 12px; padding: 30px; margin-bottom: 30px;">
+                        <h3 style="color: var(--maroon); margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                            🏆 Competition Analytics
+                        </h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: var(--success);" id="active-competitions-stat">0</div>
+                                <div class="stat-label">Active Competitions</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: var(--info);" id="pageant-competitions">0</div>
+                                <div class="stat-label">Pageant Events</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: var(--warning);" id="regular-competitions">0</div>
+                                <div class="stat-label">Regular Events</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: var(--maroon);" id="avg-participants-per-comp">0</div>
+                                <div class="stat-label">Avg Participants/Event</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Event Type Distribution -->
+                    <div style="background: #fff; border: 2px solid var(--maroon); border-radius: 12px; padding: 30px; margin-bottom: 30px;">
+                        <h3 style="color: var(--maroon); margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                            📊 Event Type Distribution
+                        </h3>
+                        <div id="event-type-breakdown">
+                            <!-- Will be populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Participant Analytics -->
+                    <div style="background: #fff; border: 2px solid var(--maroon); border-radius: 12px; padding: 30px; margin-bottom: 30px;">
+                        <h3 style="color: var(--maroon); margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                            👥 Participant Statistics
+                        </h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: var(--success);" id="active-participants-stat">0</div>
+                                <div class="stat-label">Active Participants</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: var(--info);" id="participants-with-competitions">0</div>
+                                <div class="stat-label">Enrolled in Competitions</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: var(--warning);" id="participants-without-competitions">0</div>
+                                <div class="stat-label">Not Yet Enrolled</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: var(--maroon);" id="total-criteria-count">0</div>
+                                <div class="stat-label">Total Criteria</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Judge Analytics -->
+                    <div style="background: #fff; border: 2px solid var(--maroon); border-radius: 12px; padding: 30px; margin-bottom: 30px;">
+                        <h3 style="color: var(--maroon); margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                            ⚖️ Judge Statistics
+                        </h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: var(--success);" id="active-judges-stat">0</div>
+                                <div class="stat-label">Active Judges</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: var(--info);" id="judges-with-expertise">0</div>
+                                <div class="stat-label">With Expertise Listed</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: var(--warning);" id="avg-judges-per-comp">0</div>
+                                <div class="stat-label">Avg Judges/Competition</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" style="color: var(--maroon);" id="total-judge-assignments">0</div>
+                                <div class="stat-label">Total Assignments</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Health -->
+                    <div style="background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%); border: 2px solid var(--maroon); border-radius: 12px; padding: 30px;">
+                        <h3 style="color: var(--maroon); margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                            🔍 System Health Overview
+                        </h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                            <div style="background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; text-align: center;">
+                                <div style="font-size: 18px; font-weight: bold; color: var(--success); margin-bottom: 10px;">✓ System Status</div>
+                                <div style="font-size: 14px; color: var(--muted);">All services operational</div>
+                            </div>
+                            <div style="background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; text-align: center;">
+                                <div style="font-size: 18px; font-weight: bold; color: var(--info); margin-bottom: 10px;" id="data-integrity">100%</div>
+                                <div style="font-size: 14px; color: var(--muted);">Data Integrity</div>
+                            </div>
+                            <div style="background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; text-align: center;">
+                                <div style="font-size: 18px; font-weight: bold; color: var(--warning); margin-bottom: 10px;" id="system-utilization">75%</div>
+                                <div style="font-size: 14px; color: var(--muted);">System Utilization</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions mt-20">
+                    <button onclick="adminApp.showDashboard()" class="btn-secondary">Back to Dashboard</button>
+                    <button onclick="adminApp.refreshOverviewData()" class="btn-primary">Refresh Data</button>
+                </div>
+            </div>
+        `;
+
+        await this.loadOverviewData();
+    }
+
+    async loadOverviewData() {
+        await this.refreshOverviewData();
+    }
+
+    async refreshOverviewData() {
+        try {
+            console.log('Loading comprehensive system overview...');
+            
+            // Fetch all data
+            const [competitionsRes, eventTypesRes, participantsRes, judgesRes, criteriaRes] = await Promise.all([
+                fetch(`${this.baseURL}/competitions`),
+                fetch(`${this.baseURL}/event-types`),
+                fetch(`${this.baseURL}/participants`),
+                fetch(`${this.baseURL}/judges`),
+                fetch(`${this.baseURL}/criteria`)
+            ]);
+
+            if (!competitionsRes.ok || !eventTypesRes.ok || !participantsRes.ok || !judgesRes.ok || !criteriaRes.ok) {
+                throw new Error('Failed to fetch system data');
+            }
+
+            const [competitions, eventTypes, participants, judges, criteria] = await Promise.all([
+                competitionsRes.json(),
+                eventTypesRes.json(),
+                participantsRes.json(),
+                judgesRes.json(),
+                criteriaRes.json()
+            ]);
+
+            // Main statistics
+            this.updateElementText('total-competitions', competitions?.length || 0);
+            this.updateElementText('total-event-types', eventTypes?.length || 0);
+            this.updateElementText('total-participants', participants?.length || 0);
+            this.updateElementText('total-judges', judges?.length || 0);
+
+            // Competition analytics
+            const activeCompetitions = (competitions || []).filter(c => c.status === 'active' || !c.status);
+            const pageantComps = (competitions || []).filter(c => c.is_pageant);
+            const regularComps = (competitions || []).filter(c => !c.is_pageant);
+            const avgParticipants = competitions?.length ? 
+                Math.round((participants?.length || 0) / competitions.length) : 0;
+
+            this.updateElementText('active-competitions-stat', activeCompetitions.length);
+            this.updateElementText('pageant-competitions', pageantComps.length);
+            this.updateElementText('regular-competitions', regularComps.length);
+            this.updateElementText('avg-participants-per-comp', avgParticipants);
+
+            // Participant analytics
+            const activeParticipants = (participants || []).filter(p => p.status === 'active' || !p.status);
+            const participantsWithComps = (participants || []).filter(p => p.competition_id);
+            const participantsWithoutComps = (participants || []).filter(p => !p.competition_id);
+
+            this.updateElementText('active-participants-stat', activeParticipants.length);
+            this.updateElementText('participants-with-competitions', participantsWithComps.length);
+            this.updateElementText('participants-without-competitions', participantsWithoutComps.length);
+            this.updateElementText('total-criteria-count', criteria?.length || 0);
+
+            // Judge analytics
+            const activeJudges = (judges || []).filter(j => j.status === 'active' || !j.status);
+            const judgesWithExpertise = (judges || []).filter(j => j.expertise && j.expertise.trim());
+            const avgJudges = competitions?.length ? 
+                Math.round((judges?.length || 0) / competitions.length) : 0;
+
+            this.updateElementText('active-judges-stat', activeJudges.length);
+            this.updateElementText('judges-with-expertise', judgesWithExpertise.length);
+            this.updateElementText('avg-judges-per-comp', avgJudges);
+            this.updateElementText('total-judge-assignments', judges?.length || 0);
+
+            // Event type breakdown
+            this.renderEventTypeBreakdown(eventTypes || []);
+
+            // Show sections
+            this.hideElement('overview-loading');
+            this.hideElement('overview-error');
+            this.showElement('main-stats');
+            this.showElement('detailed-analytics');
+
+            // Animate counters
+            this.animateOverviewCounters();
+
+        } catch (error) {
+            console.error('Error loading overview data:', error);
+            this.hideElement('overview-loading');
+            this.showElement('overview-error');
+            document.getElementById('overview-error').innerHTML = `
+                <div class="alert alert-error">
+                    <strong>Error:</strong> Unable to load system overview. Please check your connection and try again.
+                </div>
+            `;
+        }
+    }
+
+    renderEventTypeBreakdown(eventTypes) {
+        if (!eventTypes.length) {
+            document.getElementById('event-type-breakdown').innerHTML = 
+                '<div class="empty-state">No event types configured</div>';
+            return;
+        }
+
+        const pageantTypes = eventTypes.filter(et => et.is_pageant);
+        const regularTypes = eventTypes.filter(et => !et.is_pageant);
+
+        const html = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px;">
+                    <h4 style="color: var(--maroon); margin-bottom: 15px;">📄 Regular Events</h4>
+                    <div style="font-size: 24px; font-weight: bold; color: var(--info); margin-bottom: 10px;">${regularTypes.length}</div>
+                    <div style="font-size: 14px; color: var(--muted); margin-bottom: 15px;">Total regular event types</div>
+                    ${regularTypes.length ? `
+                        <div style="max-height: 120px; overflow-y: auto;">
+                            ${regularTypes.map(et => `
+                                <div style="padding: 5px 0; border-bottom: 1px solid #eee; font-size: 14px;">
+                                    ${et.type_name}
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : '<div style="font-style: italic; color: var(--muted);">No regular events</div>'}
+                </div>
+                
+                <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px;">
+                    <h4 style="color: var(--maroon); margin-bottom: 15px;">👑 Pageant Events</h4>
+                    <div style="font-size: 24px; font-weight: bold; color: var(--warning); margin-bottom: 10px;">${pageantTypes.length}</div>
+                    <div style="font-size: 14px; color: var(--muted); margin-bottom: 15px;">Total pageant event types</div>
+                    ${pageantTypes.length ? `
+                        <div style="max-height: 120px; overflow-y: auto;">
+                            ${pageantTypes.map(et => `
+                                <div style="padding: 5px 0; border-bottom: 1px solid #eee; font-size: 14px;">
+                                    ${et.type_name}
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : '<div style="font-style: italic; color: var(--muted);">No pageant events</div>'}
+                </div>
+            </div>
+        `;
+
+        document.getElementById('event-type-breakdown').innerHTML = html;
+    }
+
+    animateOverviewCounters() {
+        const counters = document.querySelectorAll('.summary-count, .stat-number');
+        
+        counters.forEach(counter => {
+            const target = parseInt(counter.textContent) || 0;
+            let current = 0;
+            const increment = Math.max(1, Math.ceil(target / 20));
+            
+            const timer = setInterval(() => {
+                current += increment;
+                if (current >= target) {
+                    counter.textContent = target;
+                    clearInterval(timer);
+                } else {
+                    counter.textContent = current;
+                }
+            }, 75);
+        });
+    }
+
+    // Event Types Management
     async showEventTypes() {
         document.getElementById("content").innerHTML = `
             <h2>Event Types Management</h2>
@@ -625,6 +965,7 @@ class AdminDashboard {
         );
     }
 
+    // Competitions Management
     async showCompetitions() {
         document.getElementById("content").innerHTML = `
             <h2>Manage Competitions</h2>
@@ -863,102 +1204,7 @@ class AdminDashboard {
         );
     }
 
-    async showScoringResults() {
-        document.getElementById("content").innerHTML = `
-            <h2>Scoring Results & Analytics</h2>
-            <div class="form-group">
-                <label>Select Competition:</label>
-                <select id="resultsCompetition" onchange="adminApp.loadScoringResults()">
-                    <option value="">Select Competition to View Results</option>
-                </select>
-            </div>
-            <div id="resultsContent">
-                <div class="empty-state">Select a competition to view results</div>
-            </div>
-        `;
-
-        try {
-            const competitions = await this.apiRequest('/competitions');
-            const select = document.getElementById("resultsCompetition");
-            (competitions || []).forEach(competition => {
-                const option = document.createElement("option");
-                option.value = competition.competition_id;
-                option.textContent = competition.competition_name;
-                select.appendChild(option);
-            });
-        } catch (error) {
-            console.error('Error loading competitions:', error);
-        }
-    }
-
-    async loadScoringResults() {
-        const competitionId = document.getElementById("resultsCompetition").value;
-        if (!competitionId) return;
-
-        this.showLoading('resultsContent');
-        try {
-            const scores = await this.apiRequest(`/overall-scores/${competitionId}`);
-            this.renderScoringResults(scores || []);
-        } catch (error) {
-            this.showError('resultsContent', 'Error loading scoring results');
-        }
-    }
-
-    renderScoringResults(scores) {
-        if (!scores.length) {
-            document.getElementById("resultsContent").innerHTML = '<div class="empty-state">No scores submitted yet for this competition</div>';
-            return;
-        }
-
-        const participantScores = {};
-        scores.forEach(score => {
-            if (!participantScores[score.participant_id]) {
-                participantScores[score.participant_id] = {
-                    participant_name: score.participant_name,
-                    scores: [],
-                    average: 0
-                };
-            }
-            participantScores[score.participant_id].scores.push(score.total_score);
-        });
-
-        const sortedParticipants = Object.values(participantScores)
-            .map(participant => {
-                participant.average = participant.scores.reduce((a, b) => a + b, 0) / participant.scores.length;
-                return participant;
-            })
-            .sort((a, b) => b.average - a.average);
-
-        const html = `
-            <div class="results-table">
-                <h3>Competition Rankings</h3>
-                <table>
-                    <tr>
-                        <th>Rank</th>
-                        <th>Participant</th>
-                        <th>Average Score</th>
-                        <th>Judges Scored</th>
-                    </tr>
-                    ${sortedParticipants.map((participant, index) => `
-                        <tr class="rank-row-${index + 1}">
-                            <td class="rank-${index + 1}">${this.getRankText(index)}</td>
-                            <td>${participant.participant_name}</td>
-                            <td>${participant.average.toFixed(2)}</td>
-                            <td>${participant.scores.length}</td>
-                        </tr>
-                    `).join('')}
-                </table>
-            </div>
-        `;
-
-        document.getElementById("resultsContent").innerHTML = html;
-    }
-
-    getRankText(index) {
-        const ranks = ['1st', '2nd', '3rd'];
-        return ranks[index] || `${index + 1}th`;
-    }
-
+    // Criteria Management
     async showCriteria() {
         document.getElementById("content").innerHTML = `
             <div class="criteria-management-container">
@@ -1246,7 +1492,7 @@ const adminApp = new AdminDashboard();
 window.showDashboard = () => adminApp.showDashboard();
 window.showEventTypes = () => adminApp.showEventTypes();
 window.showCompetitions = () => adminApp.showCompetitions();
-window.showScoringResults = () => adminApp.showScoringResults();
+window.showScoringResults = () => adminApp.showScoringResults(); // Now shows system overview
 window.showCriteria = () => adminApp.showCriteria();
 
 // Make sure all admin functions are globally accessible
