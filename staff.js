@@ -70,7 +70,7 @@ class StaffDashboard {
     // Dashboard
     showDashboard() {
         document.getElementById("content").innerHTML = `
-            <h2>Staff Dashboard</h2>
+            <h2></h2>
             <div class="dashboard-grid">
                 ${this.createDashboardCard('Competitions', 'View and monitor competitions', 'showCompetitions')}
                 ${this.createDashboardCard('Participants', 'Manage participant registrations', 'showParticipants')}
@@ -1005,7 +1005,7 @@ class StaffDashboard {
 const staffApp = new StaffDashboard();
 
 // Clean up on page unload
-window.addEventListener('beforeunload', () => {
+window.addEventListener('beforeunload', () => { 
     if (staffApp.liveRefreshInterval) {
         clearInterval(staffApp.liveRefreshInterval);
     }
