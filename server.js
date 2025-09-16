@@ -128,6 +128,35 @@ app.post('/create-event-type', (req, res) => {
     });
 });
 
+app.put('/update-event-type/:id', (req, res) => {
+    const { id } = req.params;
+    const { type_name, description, is_pageant } = req.body;
+    
+    if (!type_name) {
+        return res.status(400).json({ error: 'Event type name is required' });
+    }
+
+    const sql = `UPDATE event_types 
+                 SET type_name = ?, description = ?, is_pageant = ?
+                 WHERE event_type_id = ?`;
+                 
+    db.query(sql, [type_name, description || null, is_pageant || false, id], (err, result) => {
+        if (err) {
+            console.error('Error updating event type:', err);
+            return res.status(500).json({ error: 'Error updating event type' });
+        }
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Event type not found' });
+        }
+        
+        res.json({ 
+            success: true, 
+            message: 'Event type updated successfully!'
+        });
+    });
+});
+
 app.delete('/delete-event-type/:id', (req, res) => {
     const { id } = req.params;
     const sql = 'DELETE FROM event_types WHERE event_type_id = ?';
