@@ -1,8 +1,5 @@
-
--- Enverga Judging System - Full Schema (MySQL/MariaDB)
+-- Enverga Judging System - Enhanced Schema with Primary and Foreign Keys
 -- Compatible with MariaDB 10.4+ and MySQL 8.0+
--- NOTE: This keeps plaintext passwords to match the existing server.js behavior.
---       For production, switch to hashed passwords.
 
 DROP DATABASE IF EXISTS enverga_judging_system;
 CREATE DATABASE enverga_judging_system
@@ -15,8 +12,10 @@ SET time_zone = "+00:00";
 SET NAMES utf8mb4;
 
 -- =============================
--- Tables
+-- CORE TABLES
 -- =============================
+
+-- Users table (base authentication and authorization)
 CREATE TABLE users (
   user_id INT(11) NOT NULL AUTO_INCREMENT,
   username VARCHAR(50) NOT NULL,
@@ -27,12 +26,16 @@ CREATE TABLE users (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   is_active TINYINT(1) DEFAULT 1,
+  -- PRIMARY KEY
   PRIMARY KEY (user_id),
+  -- UNIQUE CONSTRAINTS
   UNIQUE KEY uk_username (username),
+  -- INDEXES
   KEY idx_username (username),
   KEY idx_role (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Event Types table (defines competition categories)
 CREATE TABLE event_types (
   event_type_id INT(11) NOT NULL AUTO_INCREMENT,
   type_name VARCHAR(100) NOT NULL,
@@ -41,12 +44,16 @@ CREATE TABLE event_types (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   is_active TINYINT(1) DEFAULT 1,
+  -- PRIMARY KEY
   PRIMARY KEY (event_type_id),
+  -- UNIQUE CONSTRAINTS
   UNIQUE KEY uk_type_name (type_name),
+  -- INDEXES
   KEY idx_type_name (type_name),
   KEY idx_is_pageant (is_pageant)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Competitions table (main competition events)
 CREATE TABLE competitions (
   competition_id INT(11) NOT NULL AUTO_INCREMENT,
   competition_name VARCHAR(200) NOT NULL,
@@ -60,13 +67,20 @@ CREATE TABLE competitions (
   registration_deadline DATE DEFAULT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  -- PRIMARY KEY
   PRIMARY KEY (competition_id),
+  -- FOREIGN KEYS
+  CONSTRAINT fk_competitions_event_type FOREIGN KEY (event_type_id) 
+    REFERENCES event_types (event_type_id) 
+    ON UPDATE CASCADE 
+    ON DELETE RESTRICT,
+  -- INDEXES
   KEY idx_competition_date (competition_date),
   KEY idx_status (status),
-  KEY idx_event_type (event_type_id),
-  CONSTRAINT competitions_ibfk_1 FOREIGN KEY (event_type_id) REFERENCES event_types (event_type_id) ON UPDATE CASCADE
+  KEY idx_event_type (event_type_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Judges table (judge profiles linked to users)
 CREATE TABLE judges (
   judge_id INT(11) NOT NULL AUTO_INCREMENT,
   user_id INT(11) NOT NULL,
@@ -81,15 +95,26 @@ CREATE TABLE judges (
   is_available TINYINT(1) DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  -- PRIMARY KEY
   PRIMARY KEY (judge_id),
+  -- FOREIGN KEYS
+  CONSTRAINT fk_judges_user FOREIGN KEY (user_id) 
+    REFERENCES users (user_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_judges_competition FOREIGN KEY (competition_id) 
+    REFERENCES competitions (competition_id) 
+    ON DELETE SET NULL 
+    ON UPDATE CASCADE,
+  -- UNIQUE CONSTRAINTS
   UNIQUE KEY uk_user_id (user_id),
+  -- INDEXES
   KEY idx_judge_name (judge_name),
   KEY idx_email (email),
-  KEY idx_competition (competition_id),
-  CONSTRAINT judges_ibfk_1 FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT judges_ibfk_2 FOREIGN KEY (competition_id) REFERENCES competitions (competition_id) ON DELETE SET NULL ON UPDATE CASCADE
+  KEY idx_competition (competition_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Participants table (competition participants)
 CREATE TABLE participants (
   participant_id INT(11) NOT NULL AUTO_INCREMENT,
   participant_name VARCHAR(100) NOT NULL,
@@ -113,14 +138,25 @@ CREATE TABLE participants (
   dietary_restrictions TEXT DEFAULT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  -- PRIMARY KEY
   PRIMARY KEY (participant_id),
+  -- FOREIGN KEYS
+  CONSTRAINT fk_participants_competition FOREIGN KEY (competition_id) 
+    REFERENCES competitions (competition_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  -- INDEXES
   KEY idx_participant_name (participant_name),
   KEY idx_email (email),
   KEY idx_competition (competition_id),
-  KEY idx_status (status),
-  CONSTRAINT participants_ibfk_1 FOREIGN KEY (competition_id) REFERENCES competitions (competition_id) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- =============================
+-- CRITERIA MANAGEMENT TABLES
+-- =============================
+
+-- Competition Criteria table (specific criteria for each competition)
 CREATE TABLE competition_criteria (
   criteria_id INT(11) NOT NULL AUTO_INCREMENT,
   competition_id INT(11) NOT NULL,
@@ -132,12 +168,20 @@ CREATE TABLE competition_criteria (
   is_active TINYINT(1) DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  -- PRIMARY KEY
   PRIMARY KEY (criteria_id),
+  -- FOREIGN KEYS
+  CONSTRAINT fk_competition_criteria_competition FOREIGN KEY (competition_id) 
+    REFERENCES competitions (competition_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  -- UNIQUE CONSTRAINTS
   UNIQUE KEY uk_competition_criteria (competition_id, criteria_name),
-  KEY idx_competition_order (competition_id, order_number),
-  CONSTRAINT competition_criteria_ibfk_1 FOREIGN KEY (competition_id) REFERENCES competitions (competition_id) ON DELETE CASCADE ON UPDATE CASCADE
+  -- INDEXES
+  KEY idx_competition_order (competition_id, order_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Criteria Templates table (reusable criteria templates)
 CREATE TABLE criteria_templates (
   template_id INT(11) NOT NULL AUTO_INCREMENT,
   template_name VARCHAR(100) NOT NULL,
@@ -147,14 +191,24 @@ CREATE TABLE criteria_templates (
   is_default TINYINT(1) DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  -- PRIMARY KEY
   PRIMARY KEY (template_id),
-  KEY created_by (created_by),
+  -- FOREIGN KEYS
+  CONSTRAINT fk_criteria_templates_event_type FOREIGN KEY (event_type_id) 
+    REFERENCES event_types (event_type_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_criteria_templates_user FOREIGN KEY (created_by) 
+    REFERENCES users (user_id) 
+    ON DELETE SET NULL 
+    ON UPDATE CASCADE,
+  -- INDEXES
   KEY idx_template_name (template_name),
   KEY idx_event_type (event_type_id),
-  CONSTRAINT criteria_templates_ibfk_1 FOREIGN KEY (event_type_id) REFERENCES event_types (event_type_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT criteria_templates_ibfk_2 FOREIGN KEY (created_by) REFERENCES users (user_id) ON DELETE SET NULL ON UPDATE CASCADE
+  KEY idx_created_by (created_by)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Template Criteria table (criteria items within templates)
 CREATE TABLE template_criteria (
   template_criteria_id INT(11) NOT NULL AUTO_INCREMENT,
   template_id INT(11) NOT NULL,
@@ -163,11 +217,22 @@ CREATE TABLE template_criteria (
   percentage DECIMAL(5,2) NOT NULL CHECK (percentage >= 0 AND percentage <= 100),
   max_score INT(11) DEFAULT 100 CHECK (max_score > 0),
   order_number INT(11) DEFAULT 1,
+  -- PRIMARY KEY
   PRIMARY KEY (template_criteria_id),
-  KEY idx_template_order (template_id, order_number),
-  CONSTRAINT template_criteria_ibfk_1 FOREIGN KEY (template_id) REFERENCES criteria_templates (template_id) ON DELETE CASCADE ON UPDATE CASCADE
+  -- FOREIGN KEYS
+  CONSTRAINT fk_template_criteria_template FOREIGN KEY (template_id) 
+    REFERENCES criteria_templates (template_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  -- INDEXES
+  KEY idx_template_order (template_id, order_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- =============================
+-- SCORING TABLES
+-- =============================
+
+-- Overall Scores table (aggregate scores per participant)
 CREATE TABLE overall_scores (
   score_id INT(11) NOT NULL AUTO_INCREMENT,
   judge_id INT(11) NOT NULL,
@@ -177,15 +242,29 @@ CREATE TABLE overall_scores (
   general_comments TEXT DEFAULT NULL,
   submitted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  -- PRIMARY KEY
   PRIMARY KEY (score_id),
+  -- FOREIGN KEYS
+  CONSTRAINT fk_overall_scores_judge FOREIGN KEY (judge_id) 
+    REFERENCES judges (judge_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_overall_scores_participant FOREIGN KEY (participant_id) 
+    REFERENCES participants (participant_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_overall_scores_competition FOREIGN KEY (competition_id) 
+    REFERENCES competitions (competition_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  -- UNIQUE CONSTRAINTS
   UNIQUE KEY uk_judge_participant (judge_id, participant_id, competition_id),
+  -- INDEXES
   KEY idx_competition_scores (competition_id),
-  KEY idx_participant_scores (participant_id),
-  CONSTRAINT overall_scores_ibfk_1 FOREIGN KEY (judge_id) REFERENCES judges (judge_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT overall_scores_ibfk_2 FOREIGN KEY (participant_id) REFERENCES participants (participant_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT overall_scores_ibfk_3 FOREIGN KEY (competition_id) REFERENCES competitions (competition_id) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY idx_participant_scores (participant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Detailed Scores table (scores per criteria)
 CREATE TABLE detailed_scores (
   detailed_score_id INT(11) NOT NULL AUTO_INCREMENT,
   judge_id INT(11) NOT NULL,
@@ -197,17 +276,38 @@ CREATE TABLE detailed_scores (
   comments TEXT DEFAULT NULL,
   submitted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  -- PRIMARY KEY
   PRIMARY KEY (detailed_score_id),
+  -- FOREIGN KEYS
+  CONSTRAINT fk_detailed_scores_judge FOREIGN KEY (judge_id) 
+    REFERENCES judges (judge_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_detailed_scores_participant FOREIGN KEY (participant_id) 
+    REFERENCES participants (participant_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_detailed_scores_competition FOREIGN KEY (competition_id) 
+    REFERENCES competitions (competition_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_detailed_scores_criteria FOREIGN KEY (criteria_id) 
+    REFERENCES competition_criteria (criteria_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  -- UNIQUE CONSTRAINTS
   UNIQUE KEY uk_judge_participant_criteria (judge_id, participant_id, criteria_id, competition_id),
+  -- INDEXES
   KEY idx_criteria (criteria_id),
   KEY idx_competition_detailed (competition_id),
-  KEY idx_participant_detailed (participant_id),
-  CONSTRAINT detailed_scores_ibfk_1 FOREIGN KEY (judge_id) REFERENCES judges (judge_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT detailed_scores_ibfk_2 FOREIGN KEY (participant_id) REFERENCES participants (participant_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT detailed_scores_ibfk_3 FOREIGN KEY (competition_id) REFERENCES competitions (competition_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT detailed_scores_ibfk_4 FOREIGN KEY (criteria_id) REFERENCES competition_criteria (criteria_id) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY idx_participant_detailed (participant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- =============================
+-- PAGEANT-SPECIFIC TABLES
+-- =============================
+
+-- Pageant Segments table (for multi-day pageant events)
 CREATE TABLE pageant_segments (
   segment_id INT(11) NOT NULL AUTO_INCREMENT,
   competition_id INT(11) NOT NULL,
@@ -220,12 +320,19 @@ CREATE TABLE pageant_segments (
   is_active TINYINT(1) DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  -- PRIMARY KEY
   PRIMARY KEY (segment_id),
+  -- FOREIGN KEYS
+  CONSTRAINT fk_pageant_segments_competition FOREIGN KEY (competition_id) 
+    REFERENCES competitions (competition_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  -- INDEXES
   KEY idx_competition_segments (competition_id),
-  KEY idx_segment_date (segment_date),
-  CONSTRAINT pageant_segments_ibfk_1 FOREIGN KEY (competition_id) REFERENCES competitions (competition_id) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY idx_segment_date (segment_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Pageant Segment Scores table (scores per segment)
 CREATE TABLE pageant_segment_scores (
   segment_score_id INT(11) NOT NULL AUTO_INCREMENT,
   judge_id INT(11) NOT NULL,
@@ -237,17 +344,38 @@ CREATE TABLE pageant_segment_scores (
   comments TEXT DEFAULT NULL,
   submitted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  -- PRIMARY KEY
   PRIMARY KEY (segment_score_id),
+  -- FOREIGN KEYS
+  CONSTRAINT fk_pageant_segment_scores_judge FOREIGN KEY (judge_id) 
+    REFERENCES judges (judge_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_pageant_segment_scores_participant FOREIGN KEY (participant_id) 
+    REFERENCES participants (participant_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_pageant_segment_scores_segment FOREIGN KEY (segment_id) 
+    REFERENCES pageant_segments (segment_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  CONSTRAINT fk_pageant_segment_scores_criteria FOREIGN KEY (criteria_id) 
+    REFERENCES competition_criteria (criteria_id) 
+    ON DELETE CASCADE 
+    ON UPDATE CASCADE,
+  -- UNIQUE CONSTRAINTS
   UNIQUE KEY uk_judge_participant_segment_criteria (judge_id, participant_id, segment_id, criteria_id),
+  -- INDEXES
   KEY idx_participant (participant_id),
   KEY idx_criteria (criteria_id),
-  KEY idx_segment_scores (segment_id),
-  CONSTRAINT pageant_segment_scores_ibfk_1 FOREIGN KEY (judge_id) REFERENCES judges (judge_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT pageant_segment_scores_ibfk_2 FOREIGN KEY (participant_id) REFERENCES participants (participant_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT pageant_segment_scores_ibfk_3 FOREIGN KEY (segment_id) REFERENCES pageant_segments (segment_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT pageant_segment_scores_ibfk_4 FOREIGN KEY (criteria_id) REFERENCES competition_criteria (criteria_id) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY idx_segment_scores (segment_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- =============================
+-- AUDIT TABLE
+-- =============================
+
+-- Audit Log table (tracks all data changes)
 CREATE TABLE audit_log (
   log_id INT(11) NOT NULL AUTO_INCREMENT,
   table_name VARCHAR(50) NOT NULL,
@@ -258,16 +386,23 @@ CREATE TABLE audit_log (
   new_values LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (JSON_VALID(new_values)),
   timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   ip_address VARCHAR(45) DEFAULT NULL,
+  -- PRIMARY KEY
   PRIMARY KEY (log_id),
+  -- FOREIGN KEYS
+  CONSTRAINT fk_audit_log_user FOREIGN KEY (user_id) 
+    REFERENCES users (user_id) 
+    ON DELETE SET NULL 
+    ON UPDATE CASCADE,
+  -- INDEXES
   KEY idx_table_record (table_name, record_id),
   KEY idx_timestamp (timestamp),
-  KEY idx_user (user_id),
-  CONSTRAINT audit_log_ibfk_1 FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE SET NULL ON UPDATE CASCADE
+  KEY idx_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================
--- Views
+-- VIEWS
 -- =============================
+
 CREATE OR REPLACE VIEW competition_overview AS
 SELECT c.competition_id,
        c.competition_name,
@@ -283,23 +418,21 @@ LEFT JOIN event_types et ON c.event_type_id = et.event_type_id
 LEFT JOIN participants p ON c.competition_id = p.competition_id AND p.status <> 'cancelled'
 LEFT JOIN judges j ON c.competition_id = j.competition_id
 LEFT JOIN competition_criteria cc ON c.competition_id = cc.competition_id AND cc.is_active = 1
-GROUP BY c.competition_id;
+GROUP BY c.competition_id, c.competition_name, c.competition_date, c.status, et.type_name, et.is_pageant;
 
 CREATE OR REPLACE VIEW judge_workload_summary AS
 SELECT j.judge_id,
        j.judge_name,
        j.competition_id,
        c.competition_name,
-       COUNT(DISTINCT p.participant_id)                            AS total_participants,
-       COUNT(DISTINCT os.score_id)                                 AS participants_scored,
-       ROUND(
-           COUNT(DISTINCT os.score_id) / NULLIF(COUNT(DISTINCT p.participant_id),0) * 100, 2
-       ) AS completion_percentage
+       COUNT(DISTINCT p.participant_id) AS total_participants,
+       COUNT(DISTINCT os.score_id) AS participants_scored,
+       ROUND(COUNT(DISTINCT os.score_id) / NULLIF(COUNT(DISTINCT p.participant_id),0) * 100, 2) AS completion_percentage
 FROM judges j
 LEFT JOIN competitions c ON j.competition_id = c.competition_id
 LEFT JOIN participants p ON c.competition_id = p.competition_id AND p.status <> 'cancelled'
 LEFT JOIN overall_scores os ON j.judge_id = os.judge_id AND p.participant_id = os.participant_id
-GROUP BY j.judge_id;
+GROUP BY j.judge_id, j.judge_name, j.competition_id, c.competition_name;
 
 CREATE OR REPLACE VIEW participant_scores_summary AS
 SELECT p.participant_id,
@@ -307,18 +440,20 @@ SELECT p.participant_id,
        p.competition_id,
        c.competition_name,
        AVG(os.total_score) AS average_score,
-       COUNT(os.score_id)  AS judges_scored,
+       COUNT(os.score_id) AS judges_scored,
        MAX(os.submitted_at) AS last_scored
 FROM participants p
 LEFT JOIN competitions c ON p.competition_id = c.competition_id
 LEFT JOIN overall_scores os ON p.participant_id = os.participant_id
 WHERE p.status <> 'cancelled'
-GROUP BY p.participant_id;
+GROUP BY p.participant_id, p.participant_name, p.competition_id, c.competition_name;
 
 -- =============================
--- Stored Procedures
+-- STORED PROCEDURES
 -- =============================
+
 DELIMITER $$
+
 CREATE OR REPLACE DEFINER=`root`@`localhost` PROCEDURE CalculateRankings (IN comp_id INT)
 BEGIN
     SELECT 
@@ -331,7 +466,7 @@ BEGIN
     LEFT JOIN overall_scores os 
       ON p.participant_id = os.participant_id AND os.competition_id = comp_id
     WHERE p.competition_id = comp_id AND p.status <> 'cancelled'
-    GROUP BY p.participant_id
+    GROUP BY p.participant_id, p.participant_name
     HAVING judges_count > 0
     ORDER BY final_score DESC;
 END$$
@@ -351,11 +486,13 @@ BEGIN
     WHERE ds.competition_id = comp_id AND ds.participant_id = part_id
     ORDER BY cc.order_number, j.judge_name;
 END$$
+
 DELIMITER ;
 
 -- =============================
--- Seed Data
+-- SEED DATA
 -- =============================
+
 INSERT INTO users (user_id, username, password, role, full_name, email, is_active)
 VALUES
 (1, 'admin', 'admin123', 'admin', 'System Administrator', 'admin@school.edu', 1),
@@ -381,3 +518,7 @@ VALUES
 
 INSERT INTO judges (judge_id, user_id, judge_name, email, phone, expertise, experience_years, credentials, competition_id, is_available)
 VALUES (1, 2, 'cj', 'cj@gmail.com', '', 'Genralist', 6, 'best teacher', 1, 1);
+
+-- =============================
+-- END OF SCHEMA
+-- =============================
