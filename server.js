@@ -759,6 +759,103 @@ app.get('/criteria-templates', (req, res) => {
     });
 });
 
+
+// ================================================
+// STAFF ENDPOINTS
+// ================================================
+app.get('/staff', (req, res) => {
+    const sql = `
+        SELECT s.*, u.username,
+               et.event_type_id as assigned_event_type_id, et.type_name as assigned_event_type_name,
+               c.competition_id as assigned_competition_id, c.competition_name as assigned_competition_name
+        FROM staff s
+        LEFT JOIN users u ON s.user_id = u.user_id
+        LEFT JOIN event_types et ON s.assigned_event_type_id = et.event_type_id
+        LEFT JOIN competitions c ON s.assigned_competition_id = c.competition_id
+        ORDER BY s.staff_name
+    `;
+    db.query(sql, (err, rows) => {
+        if (err) {
+            console.error('Error fetching staff:', err);
+            return res.status(500).json({ error: 'Error fetching staff' });
+        }
+        res.json(rows);
+    });
+});
+
+app.post('/add-staff', (req, res) => {
+    const { staff_name, email, phone } = req.body;
+    if (!staff_name || !email) {
+        return res.status(400).json({ error: 'Staff name and email are required' });
+    }
+
+    const username = staff_name.toLowerCase().replace(/\s+/g, '') + Math.floor(Math.random() * 1000);
+    const password = generatePassword(8);
+
+    db.query('INSERT INTO users (username, password, role, full_name) VALUES (?, ?, ?, ?)', 
+        [username, password, 'staff', staff_name], (err, userResult) => {
+        if (err) {
+            console.error('Error creating staff user:', err);
+            return res.status(500).json({ error: 'Error creating staff account' });
+        }
+
+        const userId = userResult.insertId;
+        const sql = `INSERT INTO staff (staff_name, email, phone, user_id) VALUES (?, ?, ?, ?)`;
+        db.query(sql, [staff_name, email, phone || null, userId], (err, result) => {
+            if (err) {
+                // rollback user
+                db.query('DELETE FROM users WHERE user_id = ?', [userId]);
+                console.error('Error adding staff:', err);
+                return res.status(500).json({ error: 'Error adding staff' });
+            }
+            res.json({
+                success: true,
+                message: 'Staff added successfully!',
+                credentials: { username, password, staff_name, staff_id: result.insertId, user_id: userId }
+            });
+        });
+    });
+});
+
+app.put('/assign-staff/:id', (req, res) => {
+    const { id } = req.params;
+    const { event_type_id, competition_id } = req.body;
+
+    const sql = `UPDATE staff SET assigned_event_type_id = ?, assigned_competition_id = ? WHERE staff_id = ?`;
+    db.query(sql, [event_type_id || null, competition_id || null, id], (err, result) => {
+        if (err) {
+            console.error('Error assigning staff:', err);
+            return res.status(500).json({ error: 'Error assigning staff' });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Staff not found' });
+        }
+        res.json({ success: true, message: 'Staff assignment updated!' });
+    });
+});
+
+app.delete('/delete-staff/:id', (req, res) => {
+    const { id } = req.params;
+    // first get user_id
+    db.query('SELECT user_id FROM staff WHERE staff_id = ?', [id], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Error fetching staff' });
+        const userId = rows.length ? rows[0].user_id : null;
+
+        db.query('DELETE FROM staff WHERE staff_id = ?', [id], (err) => {
+            if (err) {
+                console.error('Error deleting staff:', err);
+                return res.status(500).json({ error: 'Error deleting staff' });
+            }
+            if (userId) {
+                db.query('DELETE FROM users WHERE user_id = ?', [userId], (err2) => {
+                    if (err2) console.error('Error deleting user for staff:', err2);
+                });
+            }
+            res.json({ success: true, message: 'Staff deleted successfully!' });
+        });
+    });
+});
+
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 });
